@@ -1,45 +1,139 @@
-<section id="auth-section">
-  <h2>Sign Up</h2>
-  <input id="signup-email" placeholder="Email" type="email" />
-  <input id="signup-password" placeholder="Password" type="password" />
-  <input id="signup-username" placeholder="Username" />
-  <input type="file" id="signup-profile-pic" accept="image/*">
-  <button onclick="signUp()">Sign Up</button>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Barbed</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    #auth-section, #post-section, #feed, #profile-section, #chat-section {
+      max-width: 600px;
+      margin: 20px auto;
+      background: #222;
+      padding: 15px;
+      border-radius: 10px;
+    }
+    input, textarea, button {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 8px;
+      border: none;
+      font-size: 16px;
+    }
+    button {
+      background: #333;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #555;
+    }
+    .post {
+      background: #333;
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .post-header {
+      display: flex;
+      align-items: center;
+    }
+    .post-header img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-right: 10px;
+      object-fit: cover;
+    }
+    .post-content {
+      margin-top: 10px;
+      white-space: pre-wrap;
+    }
+    .post-actions {
+      margin-top: 10px;
+    }
+    .comment {
+      background: #444;
+      padding: 5px;
+      border-radius: 5px;
+      margin-top: 5px;
+    }
+    .hidden {
+      display: none;
+    }
+    #profile-pic-preview {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin-top: 10px;
+      display: block;
+      border: 2px solid #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>Barbed</h1>
 
-  <h2>Login</h2>
-  <input id="login-email" placeholder="Email" type="email" />
-  <input id="login-password" placeholder="Password" type="password" />
-  <button onclick="login()">Login</button>
-  <button onclick="googleLogin()">Login with Google</button>
-</section>
+  <!-- Authentication Section -->
+  <div id="auth-section">
+    <h2>Sign Up</h2>
+    <input type="email" id="signup-email" placeholder="Email" />
+    <input type="password" id="signup-password" placeholder="Password" />
+    <input type="text" id="signup-username" placeholder="Username" />
+    <input type="file" id="signup-profile-pic-file" accept="image/*" />
+    <img id="profile-pic-preview" src="" alt="Profile Picture Preview" class="hidden" />
+    <button id="signup-btn">Sign Up</button>
 
-<section id="profile-section" class="hidden">
-  <h2>Profile</h2>
-  <img id="profile-pic" alt="Profile Pic" width="100" height="100" />
-  <div>Username: <span id="profile-username"></span></div>
-  <div>Email: <span id="profile-email"></span></div>
-  <div>Followers: <span id="follower-count">0</span></div>
-  <div>Following: <span id="following-count">0</span></div>
-  <button onclick="updateProfile()">Edit Profile</button>
-  <button onclick="logout()">Logout</button>
-</section>
+    <h2>Login</h2>
+    <input type="email" id="login-email" placeholder="Email" />
+    <input type="password" id="login-password" placeholder="Password" />
+    <button id="login-btn">Login</button>
 
-<section id="post-section" class="hidden">
-  <h2>Create Post</h2>
-  <textarea id="post-input" placeholder="What's on your mind?"></textarea>
-  <button onclick="submitPost()">Post</button>
-</section>
+    <h3>Or</h3>
+    <button id="google-signin-btn">Sign in with Google</button>
+  </div>
 
-<section id="feed" class="hidden">
-  <h2>Feed</h2>
-  <!-- Posts get appended here -->
-</section>
+  <!-- Profile Section -->
+  <div id="profile-section" class="hidden">
+    <h2 id="profile-username"></h2>
+    <img id="profile-pic" src="" alt="Profile Picture" width="100" />
+    <p id="profile-email"></p>
+    <p>Followers: <span id="follower-count">0</span> | Following: <span id="following-count">0</span></p>
+    <button id="logout-btn">Logout</button>
+  </div>
 
-<section id="chat-section" class="hidden">
-  <h2>Direct Message</h2>
-  <input id="chat-user-email" placeholder="Recipient Username" />
-  <div id="chat-messages" style="height:150px;overflow:auto;border:1px solid #ccc;margin-bottom:8px;"></div>
-  <input id="chat-input" placeholder="Type a message" />
-  <button onclick="sendMessage()">Send</button>
-</section>
-<link rel="stylesheet" href="styles.css" />
+  <!-- Post Creation Section -->
+  <div id="post-section" class="hidden">
+    <h2>Create a Post</h2>
+    <textarea id="post-input" rows="3" placeholder="What's on your mind?"></textarea>
+    <button id="post-btn">Post</button>
+  </div>
+
+  <!-- Feed Section -->
+  <div id="feed" class="hidden">
+    <h2>Feed</h2>
+    <!-- Posts will be appended here -->
+  </div>
+
+  <!-- Chat Section -->
+  <div id="chat-section" class="hidden">
+    <h2>Private Chat</h2>
+    <input type="text" id="chat-user-username" placeholder="Username to DM" />
+    <div id="chat-messages" style="max-height: 200px; overflow-y: scroll; margin-top: 10px;"></div>
+    <input type="text" id="chat-input" placeholder="Type a message" />
+    <button id="chat-send-btn">Send</button>
+  </div>
+
+  <script type="module" src="/barbed-app.js"></script>
+</body>
+</html>
