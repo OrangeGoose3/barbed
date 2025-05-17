@@ -37,7 +37,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyD5pvVnrSpeG_vsIhpuxDtNWn8_LpJ0Njk",
   authDomain: "mossmedia-6c7c0.firebaseapp.com",
   projectId: "mossmedia-6c7c0",
-  storageBucket: "mossmedia-6c7c0.firebasestorage.app",
+  storageBucket: "mossmedia-6c7c0.appspot.com",
   messagingSenderId: "508263350192",
   appId: "1:508263350192:web:e89eeae0eede7b770ee075"
 };
