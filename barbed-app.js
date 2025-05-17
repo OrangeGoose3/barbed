@@ -1,16 +1,14 @@
 // barbed-app.js
-
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
 import {
-  getAuth,
-  onAuthStateChanged,
+  getAuth, 
+  createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
+  onAuthStateChanged,
   signOut,
   GoogleAuthProvider,
-  signInWithPopup,
-  updateProfile,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  signInWithPopup
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
 
 import {
   getFirestore,
@@ -18,26 +16,16 @@ import {
   setDoc,
   getDoc,
   updateDoc,
-  arrayUnion,
-  arrayRemove,
   collection,
-  addDoc,
-  onSnapshot,
   query,
-  orderBy,
-  serverTimestamp,
   where,
   getDocs,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  addDoc,
+  serverTimestamp,
+  orderBy,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
-
-// Your Firebase config here (replace with your actual keys)
 const firebaseConfig = {
   apiKey: "AIzaSyD5pvVnrSpeG_vsIhpuxDtNWn8_LpJ0Njk",
   authDomain: "mossmedia-6c7c0.firebaseapp.com",
@@ -48,17 +36,25 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+const auth = getAuth();
+const db = getFirestore();
+
 const googleProvider = new GoogleAuthProvider();
 
-// DOM Elements
+// UI elements
 const authSection = document.getElementById("auth-section");
 const profileSection = document.getElementById("profile-section");
 const postSection = document.getElementById("post-section");
 const feedSection = document.getElementById("feed");
 const chatSection = document.getElementById("chat-section");
+
+const signupEmail = document.getElementById("signup-email");
+const signupPassword = document.getElementById("signup-password");
+const signupUsername = document.getElementById("signup-username");
+const signupProfilePic = document.getElementById("signup-profile-pic");
+
+const loginEmail = document.getElementById("login-email");
+const loginPassword = document.getElementById("login-password");
 
 const profileUsername = document.getElementById("profile-username");
 const profilePic = document.getElementById("profile-pic");
@@ -66,324 +62,325 @@ const profileEmail = document.getElementById("profile-email");
 const followerCount = document.getElementById("follower-count");
 const followingCount = document.getElementById("following-count");
 
+const postInput = document.getElementById("post-input");
+const feed = document.getElementById("feed");
+
+const chatUserInput = document.getElementById("chat-user-email");
+const chatMessages = document.getElementById("chat-messages");
+const chatInput = document.getElementById("chat-input");
+
 let currentUser = null;
-let unsubscribeFeed = null;
+let currentUserData = null;
 let unsubscribeMessages = null;
-let currentChatConvoId = null;
 
-// ------------------- AUTH ---------------------
-
-// Sign up with email, password, username, and optional profile picture file
-async function signUp() {
-  const email = document.getElementById("signup-email").value.trim();
-  const password = document.getElementById("signup-password").value.trim();
-  const username = document.getElementById("signup-username").value.trim();
-  const profilePicFile = document.getElementById("signup-profile-pic-file").files[0]; // Expect a file input now
+// --- SIGN UP ---
+window.signUp = async () => {
+  const email = signupEmail.value.trim();
+  const password = signupPassword.value;
+  const username = signupUsername.value.trim();
+  const profilePicURL = signupProfilePic.value.trim() || "https://via.placeholder.com/100";
 
   if (!email || !password || !username) {
-    alert("Email, password, and username are required.");
+    alert("Email, password and username are required.");
     return;
   }
 
   try {
-    // Create user
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     currentUser = userCredential.user;
 
-    // Upload profile pic if any
-    let photoURL = "";
-    if (profilePicFile) {
-      const picRef = storageRef(storage, `profilePics/${currentUser.uid}`);
-      await uploadBytes(picRef, profilePicFile);
-      photoURL = await getDownloadURL(picRef);
-    }
-
-    // Update Firebase Auth profile
-    await updateProfile(currentUser, {
-      displayName: username,
-      photoURL: photoURL || ""
-    });
-
-    // Create user document in Firestore
+    // Save profile data to Firestore
     await setDoc(doc(db, "users", currentUser.uid), {
-      email,
       username,
-      profilePicUrl: photoURL || "",
+      email,
+      profilePicURL,
+      banned: false,
       followers: [],
-      following: [],
-      createdAt: serverTimestamp()
+      following: []
     });
 
-    alert("Signup successful!");
-    showUserProfile();
-  } catch (error) {
-    console.error("Signup error:", error);
-    alert(error.message);
+    alert("Sign up successful!");
+  } catch (e) {
+    alert("Error signing up: " + e.message);
   }
-}
+};
 
-// Login with email and password
-async function login() {
-  const email = document.getElementById("login-email").value.trim();
-  const password = document.getElementById("login-password").value.trim();
+// --- LOGIN ---
+window.login = async () => {
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value;
+
+  if (!email || !password) {
+    alert("Email and password required.");
+    return;
+  }
 
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     currentUser = userCredential.user;
-    showUserProfile();
-  } catch (error) {
-    console.error("Login error:", error);
-    alert(error.message);
+  } catch (e) {
+    alert("Error logging in: " + e.message);
   }
-}
+};
 
-// Login with Google popup
-async function googleLogin() {
+// --- GOOGLE LOGIN ---
+window.googleLogin = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     currentUser = result.user;
 
-    // Check if user doc exists; if not, create it
+    // Check if user doc exists, if not create
     const userDocRef = doc(db, "users", currentUser.uid);
-    const userDoc = await getDoc(userDocRef);
-    if (!userDoc.exists()) {
+    const userDocSnap = await getDoc(userDocRef);
+
+    if (!userDocSnap.exists()) {
       await setDoc(userDocRef, {
+        username: currentUser.displayName || "googleUser",
         email: currentUser.email,
-        username: currentUser.displayName || "GoogleUser",
-        profilePicUrl: currentUser.photoURL || "",
+        profilePicURL: currentUser.photoURL || "https://via.placeholder.com/100",
+        banned: false,
         followers: [],
-        following: [],
-        createdAt: serverTimestamp()
+        following: []
       });
     }
-    showUserProfile();
-  } catch (error) {
-    console.error("Google login error:", error);
-    alert(error.message);
+  } catch (e) {
+    alert("Google login error: " + e.message);
   }
-}
+};
 
-// Logout function
-async function logout() {
-  try {
-    await signOut(auth);
-    currentUser = null;
-    if (unsubscribeFeed) unsubscribeFeed();
-    if (unsubscribeMessages) unsubscribeMessages();
-    showAuthSection();
-  } catch (error) {
-    console.error("Logout error:", error);
-  }
-}
-
-// Listen to auth state changes
-onAuthStateChanged(auth, user => {
-  if (user) {
-    currentUser = user;
-    showUserProfile();
-  } else {
-    currentUser = null;
-    showAuthSection();
-  }
-});
-
-// ------------------- UI & PROFILE ---------------------
-
-function showAuthSection() {
+// --- LOGOUT ---
+window.logout = async () => {
+  if (unsubscribeMessages) unsubscribeMessages();
+  await signOut(auth);
+  currentUser = null;
+  currentUserData = null;
   authSection.classList.remove("hidden");
   profileSection.classList.add("hidden");
   postSection.classList.add("hidden");
   feedSection.classList.add("hidden");
   chatSection.classList.add("hidden");
-}
+  feed.innerHTML = "";
+  chatMessages.innerHTML = "";
+  alert("Logged out.");
+};
 
-async function showUserProfile() {
-  authSection.classList.add("hidden");
-  profileSection.classList.remove("hidden");
-  postSection.classList.remove("hidden");
-  feedSection.classList.remove("hidden");
-  chatSection.classList.remove("hidden");
+// --- UPDATE PROFILE ---
+window.updateProfile = async () => {
+  const newUsername = prompt("Enter new username:", currentUserData.username);
+  if (!newUsername) return alert("Username cannot be empty.");
 
-  // Load user info from Firestore
-  const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-  if (!userDoc.exists()) {
-    alert("User data not found!");
-    return;
+  const newProfilePicURL = prompt("Enter new profile picture URL:", currentUserData.profilePicURL) || currentUserData.profilePicURL;
+
+  try {
+    await updateDoc(doc(db, "users", currentUser.uid), {
+      username: newUsername,
+      profilePicURL: newProfilePicURL
+    });
+    alert("Profile updated!");
+  } catch (e) {
+    alert("Error updating profile: " + e.message);
   }
-  const userData = userDoc.data();
+};
 
-  profileUsername.textContent = userData.username || currentUser.displayName || "User";
-  profileEmail.textContent = currentUser.email;
-  profilePic.src = userData.profilePicUrl || "default-profile.png";
-  followerCount.textContent = userData.followers?.length || 0;
-  followingCount.textContent = userData.following?.length || 0;
+// --- POST SUBMISSION ---
+window.submitPost = async () => {
+  if (!currentUser) return alert("You must be logged in.");
 
-  subscribeToFeed();
-}
-
-// ------------------- POSTING ---------------------
-
-// Submit a new post
-async function submitPost() {
-  const content = document.getElementById("post-input").value.trim();
-  if (!content) {
-    alert("Post cannot be empty");
-    return;
-  }
+  const content = postInput.value.trim();
+  if (!content) return alert("Post cannot be empty.");
 
   try {
     await addDoc(collection(db, "posts"), {
-      userId: currentUser.uid,
+      uid: currentUser.uid,
+      username: currentUserData.username,
+      profilePicURL: currentUserData.profilePicURL,
       content,
       timestamp: serverTimestamp()
     });
-    document.getElementById("post-input").value = "";
-  } catch (error) {
-    console.error("Post submit error:", error);
+    postInput.value = "";
+  } catch (e) {
+    alert("Error posting: " + e.message);
   }
-}
-
-// Subscribe to real-time post feed
-function subscribeToFeed() {
-  if (unsubscribeFeed) unsubscribeFeed();
-
-  const postsQuery = query(collection(db, "posts"), orderBy("timestamp", "desc"));
-  unsubscribeFeed = onSnapshot(postsQuery, async (snapshot) => {
-    feedSection.innerHTML = "<h2>Feed</h2>";
-    for (const docSnap of snapshot.docs) {
-      const post = docSnap.data();
-
-      // Get post author info
-      const userDoc = await getDoc(doc(db, "users", post.userId));
-      const user = userDoc.exists() ? userDoc.data() : { username: "Unknown", profilePicUrl: "" };
-
-      const postEl = document.createElement("div");
-      postEl.className = "post";
-
-      postEl.innerHTML = `
-        <div class="post-header">
-          <img src="${user.profilePicUrl || "default-profile.png"}" alt="Profile" />
-          <strong>${user.username}</strong>
-        </div>
-        <div class="post-content">${post.content}</div>
-      `;
-
-      feedSection.appendChild(postEl);
-    }
-  });
-}
-
-// ------------------- FRIENDS SYSTEM ---------------------
-
-// Follow a user
-async function followUser(targetUserId) {
-  if (!currentUser) return;
-
-  const currentUserRef = doc(db, "users", currentUser.uid);
-  const targetUserRef = doc(db, "users", targetUserId);
-
-  await updateDoc(currentUserRef, { following: arrayUnion(targetUserId) });
-  await updateDoc(targetUserRef, { followers: arrayUnion(currentUser.uid) });
-
-  alert("Followed user!");
-  await showUserProfile(); // Refresh follower/following counts
-}
-
-// Unfollow a user
-async function unfollowUser(targetUserId) {
-  if (!currentUser) return;
-
-  const currentUserRef = doc(db, "users", currentUser.uid);
-  const targetUserRef = doc(db, "users", targetUserId);
-
-  await updateDoc(currentUserRef, { following: arrayRemove(targetUserId) });
-  await updateDoc(targetUserRef, { followers: arrayRemove(currentUser.uid) });
-
-  alert("Unfollowed user!");
-  await showUserProfile(); // Refresh follower/following counts
-}
-
-// ------------------- DIRECT MESSAGING ---------------------
-
-// Generate conversation ID consistently (sorted)
-function getConvoId(userId1, userId2) {
-  return [userId1, userId2].sort().join("_");
-}
-
-async function sendMessage(receiverEmail, text) {
-  if (!currentUser) return;
-  if (!text.trim()) return alert("Message cannot be empty.");
-
-  // Get receiver user id by email
-  const usersRef = collection(db, "users");
-  const q = query(usersRef, where("email", "==", receiverEmail));
-  const querySnapshot = await getDocs(q);
-  if (querySnapshot.empty) {
-    alert("User not found");
-    return;
-  }
-  const receiverDoc = querySnapshot.docs[0];
-  const receiverId = receiverDoc.id;
-
-  const convoId = getConvoId(currentUser.uid, receiverId);
-  const messagesRef = collection(db, "messages", convoId, "messages");
-
-  await addDoc(messagesRef, {
-    senderId: currentUser.uid,
-    text,
-    timestamp: serverTimestamp(),
-  });
-}
-
-// Listen to messages in a convo and update chat UI
-function listenToMessages(receiverEmail) {
-  if (!currentUser) return;
-  if (unsubscribeMessages) unsubscribeMessages();
-
-  getDocs(query(collection(db, "users"), where("email", "==", receiverEmail)))
-    .then(snapshot => {
-      if (snapshot.empty) {
-        alert("User not found");
-        return;
-      }
-      const receiverId = snapshot.docs[0].id;
-      currentChatConvoId = getConvoId(currentUser.uid, receiverId);
-      const messagesRef = collection(db, "messages", currentChatConvoId, "messages");
-      const messagesQuery = query(messagesRef, orderBy("timestamp"));
-
-      unsubscribeMessages = onSnapshot(messagesQuery, snapshot => {
-        chatSection.innerHTML = "<h3>Chat</h3>";
-        snapshot.forEach(doc => {
-          const message = doc.data();
-          const isMine = message.senderId === currentUser.uid;
-          const msgDiv = document.createElement("div");
-          msgDiv.className = isMine ? "my-msg" : "their-msg";
-          msgDiv.textContent = message.text;
-          chatSection.appendChild(msgDiv);
-        });
-      });
-    })
-    .catch(err => console.error(err));
-}
-
-// ------------------- EVENT LISTENERS ---------------------
-
-// Example buttons, inputs, etc. should be linked to these functions in your HTML
-
-document.getElementById("signup-btn").onclick = signUp;
-document.getElementById("login-btn").onclick = login;
-document.getElementById("google-login-btn").onclick = googleLogin;
-document.getElementById("logout-btn").onclick = logout;
-
-document.getElementById("post-submit-btn").onclick = submitPost;
-
-// Example: send message button and input
-document.getElementById("send-msg-btn").onclick = () => {
-  const receiverEmail = document.getElementById("chat-email-input").value.trim();
-  const msgText = document.getElementById("chat-msg-input").value.trim();
-  sendMessage(receiverEmail, msgText);
-  document.getElementById("chat-msg-input").value = "";
 };
 
-// To listen to messages for a user, call listenToMessages(receiverEmail) when starting a chat
+// --- RENDER POSTS ---
+function renderPost(post) {
+  const div = document.createElement("div");
+  div.className = "post";
 
+  div.innerHTML = `
+    <div class="post-header">
+      <img src="${post.profilePicURL}" alt="pfp">
+      <strong>${post.username}</strong> <small>${new Date(post.timestamp?.toDate()).toLocaleString()}</small>
+    </div>
+    <div class="post-content">${post.content}</div>
+  `;
+
+  return div;
+}
+
+// --- LOAD FEED ---
+function listenToFeed() {
+  const postsRef = collection(db, "posts");
+  const q = query(postsRef, orderBy("timestamp", "desc"));
+
+  onSnapshot(q, (snapshot) => {
+    feed.innerHTML = "";
+    snapshot.forEach(doc => {
+      const post = doc.data();
+      feed.appendChild(renderPost(post));
+    });
+  });
+}
+
+// --- DM SYSTEM ---
+
+// Send DM by username
+window.sendMessage = async () => {
+  if (!currentUser) return alert("You must be logged in.");
+
+  const toUsername = chatUserInput.value.trim();
+  const messageText = chatInput.value.trim();
+  if (!toUsername || !messageText) return alert("Recipient username and message cannot be empty.");
+
+  // Find receiver UID
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("username", "==", toUsername));
+  const querySnapshot = await getDocs(q);
+
+  if (querySnapshot.empty) {
+    return alert("User not found.");
+  }
+
+  const receiverDoc = querySnapshot.docs[0];
+  const receiverUid = receiverDoc.id;
+
+  try {
+    await addDoc(collection(db, "messages"), {
+      senderUid: currentUser.uid,
+      receiverUid,
+      message: messageText,
+      timestamp: serverTimestamp()
+    });
+    chatInput.value = "";
+  } catch (e) {
+    alert("Error sending message: " + e.message);
+  }
+};
+
+// Listen for messages between current user and the chat user
+function listenToMessagesWithUsername(username) {
+  if (unsubscribeMessages) unsubscribeMessages();
+
+  // Find chat user UID
+  getDocs(query(collection(db, "users"), where("username", "==", username))).then(snapshot => {
+    if (snapshot.empty) {
+      alert("User not found");
+      return;
+    }
+    const chatUserDoc = snapshot.docs[0];
+    const chatUserUid = chatUserDoc.id;
+
+    const messagesRef = collection(db, "messages");
+    const q = query(
+      messagesRef,
+      where("senderUid", "in", [currentUser.uid, chatUserUid]),
+      orderBy("timestamp", "asc")
+    );
+
+    unsubscribeMessages = onSnapshot(q, (snapshot) => {
+      chatMessages.innerHTML = "";
+      snapshot.forEach(doc => {
+        const msg = doc.data();
+        // Only show messages between these two users
+        if (
+          (msg.senderUid === currentUser.uid && msg.receiverUid === chatUserUid) ||
+          (msg.senderUid === chatUserUid && msg.receiverUid === currentUser.uid)
+        ) {
+          const div = document.createElement("div");
+          div.textContent = (msg.senderUid === currentUser.uid ? "You: " : username + ": ") + msg.message;
+          chatMessages.appendChild(div);
+        }
+      });
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+  });
+}
+
+// When chat user input loses focus, listen to new conversation
+chatUserInput.addEventListener("change", (e) => {
+  const username = e.target.value.trim();
+  if (username) listenToMessagesWithUsername(username);
+});
+
+// --- BAN CHECK on login ---
+async function checkBan(uid) {
+  const userDocRef = doc(db, "users", uid);
+  const userSnap = await getDoc(userDocRef);
+  if (!userSnap.exists()) return false;
+
+  const data = userSnap.data();
+  if (data.banned) {
+    alert("You are banned from this app.");
+    await signOut(auth);
+    return true;
+  }
+  return false;
+}
+
+// --- ADMIN BAN FUNCTION (example usage) ---
+window.banUser = async (username) => {
+  if (!currentUser) return alert("Must be logged in as admin.");
+
+  // For demo, anyone logged in can ban — restrict in real app
+  const usersRef = collection(db, "users");
+  const q = query(usersRef, where("username", "==", username));
+  const querySnapshot = await getDocs(q);
+
+  if (querySnapshot.empty) return alert("User not found.");
+
+  const userDoc = querySnapshot.docs[0];
+  await updateDoc(doc(db, "users", userDoc.id), {
+    banned: true
+  });
+
+  alert(username + " has been banned.");
+};
+
+// --- AUTH STATE LISTENER ---
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    const banned = await checkBan(user.uid);
+    if (banned) return;
+
+    currentUser = user;
+    const userDocRef = doc(db, "users", user.uid);
+    const userSnap = await getDoc(userDocRef);
+    currentUserData = userSnap.data();
+
+    authSection.classList.add("hidden");
+    profileSection.classList.remove("hidden");
+    postSection.classList.remove("hidden");
+    feedSection.classList.remove("hidden");
+    chatSection.classList.remove("hidden");
+
+    profileUsername.textContent = currentUserData.username;
+    profileEmail.textContent = currentUser.email;
+    profilePic.src = currentUserData.profilePicURL;
+    followerCount.textContent = currentUserData.followers?.length || 0;
+    followingCount.textContent = currentUserData.following?.length || 0;
+
+    listenToFeed();
+
+  } else {
+    currentUser = null;
+    currentUserData = null;
+    authSection.classList.remove("hidden");
+    profileSection.classList.add("hidden");
+    postSection.classList.add("hidden");
+    feedSection.classList.add("hidden");
+    chatSection.classList.add("hidden");
+    feed.innerHTML = "";
+    chatMessages.innerHTML = "";
+  }
+});
