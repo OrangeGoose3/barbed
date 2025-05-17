@@ -74,3 +74,16 @@ button:hover {
 .hidden {
   display: none;
 }
+
+input[type="file"] {
+  width: 100%;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 8px;
+  border: none;
+  font-size: 16px;
+  background: #222;
+  color: white;
+  cursor: pointer;
+}
+
